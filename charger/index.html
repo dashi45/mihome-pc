@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>酷态科 10 号 Ultra · 充电器控制台</title>
+<style>
+/* ==================================================================
+   主题
+   ================================================================== */
+:root {
+  --bg:        #0a0c10;
+  --bg-grad:   radial-gradient(1100px 560px at 12% -12%, rgba(38,96,168,.32) 0%, transparent 62%),
+               radial-gradient(820px 480px at 92% -6%, rgba(96,58,150,.22) 0%, transparent 58%),
+               radial-gradient(700px 400px at 50% 110%, rgba(30,60,80,.18) 0%, transparent 60%);
+  --card:      #12151b;
+  --card-2:    #171b22;
+  --card-hi:   #1d222b;
+  --line:      rgba(255,255,255,.065);
+  --line-2:    rgba(255,255,255,.12);
+  --txt:       #e9ecf1;
+  --txt-2:     #98a1ad;
+  --txt-3:     #5b6470;
+  --blue:      #4c8dff;
+  --green:     #34d399;
+  --orange:    #fbbf24;
+  --red:       #f87171;
+  --c1: #34d399;
+  --c2: #4c8dff;
+  --c3: #a78bfa;
+  --ca: #fbbf24;
+  --r:  16px;
+  --r-s: 12px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { color-scheme: dark; }
+body {
+  background: var(--bg);
+  background-image: var(--bg-grad);
+  background-attachment: fixed;
+  color: var(--txt);
+  min-height: 100vh;
+  padding: 20px 24px 56px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", Roboto, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ==================================================================
+   顶栏
+   ================================================================== */
+.topbar {
+  max-width: 1440px; margin: 0 auto 18px;
+  display: flex; align-items: center; gap: 14px;
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.logo {
+  width: 38px; height: 38px; border-radius: 11px;
+  display: grid; place-items: center; font-size: 19px;
+  background: linear-gradient(145deg, #5b98ff, #2f6fe0);
+  box-shadow: 0 6px 20px rgba(76,141,255,.34), inset 0 1px 0 rgba(255,255,255,.28);
+}
+.brand h1 { font-size: 16px; font-weight: 620; letter-spacing: .2px; }
+.brand p { font-size: 10.5px; color: var(--txt-3); letter-spacing: .7px; margin-top: 2px; }
+
+.status {
+  margin-left: auto;
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 8px 15px 8px 13px; border-radius: 999px;
+  background: rgba(255,255,255,.032);
+  border: 1px solid var(--line);
+  font-size: 12.5px; color: var(--txt-2);
+  backdrop-filter: blur(12px);
+  transition: border-color .3s, background .3s;
+}
+.status.live { border-color: rgba(52,211,153,.26); background: rgba(52,211,153,.055); }
+.dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--txt-3); transition: .3s; flex: none;
+}
+.dot.ok   { background: var(--green); box-shadow: 0 0 0 4px rgba(52,211,153,.14); animation: pulse 2.4s ease-in-out infinite; }
+.dot.warn { background: var(--orange); box-shadow: 0 0 0 4px rgba(251,191,36,.14); animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .38 } }
+.status-sep { width: 1px; height: 12px; background: var(--line-2); }
+.fresh { font-size: 11px; color: var(--txt-3); font-variant-numeric: tabular-nums; min-width: 62px; }
+
+.icon-btn {
+  width: 38px; height: 38px; flex: none;
+  border-radius: 11px; border: 1px solid var(--line);
+  background: rgba(255,255,255,.032); color: var(--txt-2);
+  font-size: 15px; cursor: pointer; transition: .2s;
+  display: grid; place-items: center;
+}
+.icon-btn:hover { background: var(--card-hi); color: var(--txt); border-color: var(--line-2); transform: translateY(-1px); }
+.icon-btn:active { transform: translateY(0) scale(.96); }
+
+/* 连接失败说明条：默认黄色（充电器不在范围之类，等等就好），
+   红色只留给「本机没蓝牙」这种等也没用的硬故障。 */
+.hintbar {
+  max-width: 1440px; margin: 0 auto 14px;
+  display: flex; gap: 11px; align-items: flex-start;
+  padding: 11px 15px; border-radius: var(--r-s);
+  background: linear-gradient(90deg, rgba(251,191,36,.10), rgba(251,191,36,.02));
+  border: 1px solid rgba(251,191,36,.20);
+  animation: hintIn .22s ease-out;
+}
+.hintbar[hidden] { display: none; }
+.hintbar.bad {
+  background: linear-gradient(90deg, rgba(248,113,113,.11), rgba(248,113,113,.02));
+  border-color: rgba(248,113,113,.24);
+}
+@keyframes hintIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+.hb-ico { color: var(--orange); font-size: 13px; line-height: 1.55; flex: none; }
+.hintbar.bad .hb-ico { color: var(--red); }
+.hb-body { font-size: 12.5px; line-height: 1.62; color: var(--txt-2); }
+.hb-body b { color: var(--txt); font-weight: 600; margin-right: 9px; }
+
+/* ==================================================================
+   栅格
+   ================================================================== */
+.layout {
+  max-width: 1440px; margin: 0 auto;
+  display: grid; grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 14px; align-items: start;
+}
+.s12 { grid-column: span 12; }
+.s8  { grid-column: span 8; }
+.s6  { grid-column: span 6; }
+.s4  { grid-column: span 4; }
+
+/* ==================================================================
+   卡片
+   ================================================================== */
+.card {
+  background: linear-gradient(180deg, rgba(255,255,255,.017), transparent 42%), var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 16px;
+  position: relative;
+  transition: border-color .3s;
+}
+.card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 13px; gap: 10px;
+}
+.card-title {
+  font-size: 11.5px; font-weight: 620; letter-spacing: .9px;
+  text-transform: uppercase; color: var(--txt-2);
+  display: flex; align-items: center; gap: 7px;
+}
+.card-title i { font-style: normal; font-size: 13px; opacity: .85; }
+.card-sub { font-size: 10.5px; color: var(--txt-3); font-variant-numeric: tabular-nums; }
+
+/* ==================================================================
+   Hero · 总功率
+   ================================================================== */
+.hero { padding: 18px 20px 8px; overflow: hidden; }
+.hero::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(560px 190px at 6% 0%, rgba(251,191,36,.075), transparent 70%);
+}
+.hero-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 20px; position: relative; z-index: 1;
+}
+.hero-label {
+  font-size: 10.5px; letter-spacing: 1.4px; text-transform: uppercase;
+  color: var(--txt-3); margin-bottom: 4px;
+}
+.hero-num {
+  display: flex; align-items: baseline; gap: 6px;
+  font-size: 54px; font-weight: 260; line-height: .96;
+  letter-spacing: -2.6px;
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(175deg, #ffffff 8%, #9fb0c4 92%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  transition: opacity .35s;
+}
+.hero-num .unit {
+  font-size: 16px; font-weight: 500; letter-spacing: 0;
+  color: var(--txt-3); -webkit-text-fill-color: var(--txt-3);
+}
+.hero-stats {
+  display: flex; gap: 26px; padding-top: 6px;
+}
+.hero-stats > div { display: flex; flex-direction: column; gap: 3px; }
+.hero-stats span { font-size: 10.5px; color: var(--txt-2); letter-spacing: .3px; white-space: nowrap; }
+.hero-stats b {
+  font-size: 15px; font-weight: 520; color: var(--txt);
+  font-variant-numeric: tabular-nums; letter-spacing: -.2px;
+}
+.hero-stats b i { font-style: normal; font-size: 10.5px; color: var(--txt-3); font-weight: 400; }
+
+/* 堆叠功率条：一眼看出谁在吃电 */
+.stackbar {
+  display: flex; gap: 3px; height: 5px; margin: 16px 0 2px;
+  border-radius: 3px; overflow: hidden; position: relative; z-index: 1;
+}
+.stackbar > i {
+  height: 100%; width: 0%; border-radius: 3px;
+  background: var(--pc);
+  transition: width .55s cubic-bezier(.22,.8,.28,1), opacity .3s;
+  box-shadow: 0 0 10px -2px var(--pc);
+}
+.stackbar > em {
+  flex: 1; height: 100%; border-radius: 3px;
+  background: rgba(255,255,255,.055);
+}
+#chart { width: 100%; height: 104px; display: block; margin-top: 6px; }
+
+/* ==================================================================
+   端口卡
+   ================================================================== */
+.ports { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.port {
+  position: relative; overflow: hidden;
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  padding: 13px 14px 12px;
+  transition: border-color .3s, background .3s, transform .3s;
+}
+.port::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--pc), transparent 85%);
+  opacity: .3; transition: opacity .35s;
+}
+.port::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(240px 90px at 20% 0%, var(--pc), transparent 72%);
+  opacity: 0; transition: opacity .4s;
+}
+.port.active { border-color: color-mix(in srgb, var(--pc) 30%, transparent); background: var(--card-hi); }
+.port.active::before { opacity: 1; }
+.port.active::after { opacity: .085; }
+.port-top { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; position: relative; z-index: 1; }
+.port-name { font-size: 11.5px; font-weight: 700; letter-spacing: .6px; color: var(--pc); }
+.port-proto {
+  font-size: 9px; font-weight: 650; letter-spacing: .4px;
+  padding: 2px 6px; border-radius: 5px;
+  background: rgba(255,255,255,.055); color: var(--txt-3);
+  text-transform: uppercase; white-space: nowrap;
+  transition: .3s;
+}
+.port-proto.live { background: color-mix(in srgb, var(--pc) 17%, transparent); color: var(--pc); }
+.port-power {
+  font-size: 27px; font-weight: 300; line-height: 1;
+  font-variant-numeric: tabular-nums; letter-spacing: -1.1px;
+  position: relative; z-index: 1;
+  transition: opacity .3s;
+}
+.port-power .u { font-size: 11.5px; color: var(--txt-3); margin-left: 3px; letter-spacing: 0; font-weight: 400; }
+.port-vi {
+  margin-top: 6px; font-size: 10.5px; color: var(--txt-3);
+  font-variant-numeric: tabular-nums; letter-spacing: .2px;
+  position: relative; z-index: 1;
+}
+.port-vi b { color: var(--txt-2); font-weight: 500; }
+.port-vi em { font-style: normal; opacity: .45; margin: 0 5px; }
+.bar {
+  margin-top: 10px; height: 3px; border-radius: 2px;
+  background: rgba(255,255,255,.06); overflow: hidden;
+  position: relative; z-index: 1;
+}
+.bar > i {
+  display: block; height: 100%; width: 0%; border-radius: 2px;
+  background: var(--pc);
+  transition: width .55s cubic-bezier(.22,.8,.28,1);
+}
+.port.off .port-power, .port.off .port-vi { opacity: .34; }
+.port.off .bar > i { opacity: .3; }
+.port.off .port-proto { opacity: .5; }
+
+/* 端口卡内的紧凑开关 */
+.sw {
+  margin-left: auto; flex: none;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 8px 3px 6px; border-radius: 999px;
+  background: rgba(255,255,255,.045);
+  border: 1px solid transparent;
+  font-size: 9.5px; font-weight: 600; color: var(--txt-3);
+  font-family: inherit; letter-spacing: .2px;
+  cursor: pointer; user-select: none;
+  transition: .25s;
+}
+.sw .sw-ico {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: rgba(255,255,255,.16); display: block;
+  transition: .25s;
+}
+.sw:hover:not(.disabled) { background: rgba(255,255,255,.09); }
+.sw.on {
+  background: color-mix(in srgb, var(--pc) 15%, transparent);
+  border-color: color-mix(in srgb, var(--pc) 26%, transparent);
+  color: var(--pc);
+}
+.sw.on .sw-ico { background: var(--pc); box-shadow: 0 0 8px var(--pc); }
+.sw.disabled { opacity: .35; cursor: not-allowed; }
+.sw .sws { min-width: 20px; text-align: left; }
+
+/* ==================================================================
+   场景
+   ================================================================== */
+.scene-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; }
+.scene {
+  display: flex; align-items: center; gap: 9px;
+  background: var(--card-2); border: 1px solid var(--line);
+  border-radius: 11px; padding: 11px 12px;
+  cursor: pointer; user-select: none;
+  transition: .22s; position: relative; overflow: hidden;
+}
+.scene:hover:not(.disabled) { background: var(--card-hi); border-color: var(--line-2); transform: translateY(-1px); }
+.scene.disabled { opacity: .34; cursor: not-allowed; }
+.scene-ico { font-size: 16px; line-height: 1; filter: grayscale(1) opacity(.45); transition: .28s; flex: none; }
+.scene-lbl { font-size: 11.5px; color: var(--txt-3); letter-spacing: .2px; transition: .22s; }
+.scene.on {
+  border-color: rgba(76,141,255,.42);
+  background: linear-gradient(135deg, rgba(76,141,255,.17), rgba(76,141,255,.05));
+  box-shadow: 0 0 0 1px rgba(76,141,255,.1), 0 4px 16px -6px rgba(76,141,255,.5);
+}
+.scene.on .scene-ico { filter: none; transform: scale(1.1); }
+.scene.on .scene-lbl { color: #cfdcff; font-weight: 600; }
+.scene-desc {
+  margin-top: 11px; font-size: 11px; color: var(--txt-3);
+  line-height: 1.55; min-height: 34px;
+  border-top: 1px solid var(--line); padding-top: 10px;
+}
+
+/* ==================================================================
+   协议开关
+   ================================================================== */
+.proto-groups { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 14px; }
+.proto-group { min-width: 0; }
+.proto-port {
+  font-size: 10px; font-weight: 700; letter-spacing: .6px;
+  color: var(--pc); margin-bottom: 6px; opacity: .85;
+}
+.proto-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.psw {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--card-2); border: 1px solid var(--line);
+  border-radius: 8px; padding: 6px 10px 6px 8px;
+  cursor: pointer; user-select: none; transition: .2s;
+}
+.psw:hover:not(.disabled) { border-color: var(--line-2); background: var(--card-hi); }
+.psw:active:not(.disabled) { transform: scale(.97); }
+.psw.disabled { opacity: .33; cursor: not-allowed; }
+.psw-ind {
+  width: 6px; height: 6px; border-radius: 50%; flex: none;
+  background: rgba(255,255,255,.13); transition: .25s;
+}
+.psw.on .psw-ind { background: var(--green); box-shadow: 0 0 7px rgba(52,211,153,.75); }
+.psw-name { font-size: 11px; color: var(--txt-3); transition: .22s; letter-spacing: .2px; }
+.psw.on .psw-name { color: var(--txt); font-weight: 550; }
+.psw.on { border-color: rgba(52,211,153,.2); background: rgba(52,211,153,.055); }
+
+/* ==================================================================
+   倒计时
+   ================================================================== */
+.cd-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.cd-item {
+  background: var(--card-2); border: 1px solid var(--line);
+  border-radius: 11px; padding: 10px 11px;
+}
+.cd-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 6px; }
+.cd-port { font-size: 10.5px; font-weight: 700; letter-spacing: .5px; color: var(--pc); }
+.cd-cur { font-size: 9.5px; color: var(--txt-3); font-variant-numeric: tabular-nums; }
+.cd-cur.on { color: var(--orange); font-weight: 600; }
+.cd-row { display: flex; gap: 5px; align-items: center; }
+.cd-input {
+  flex: 1; min-width: 0;
+  background: rgba(0,0,0,.32); border: 1px solid var(--line);
+  border-radius: 7px; color: var(--txt); font-size: 12px;
+  padding: 6px 8px; font-variant-numeric: tabular-nums;
+  font-family: inherit; outline: none; transition: .2s;
+}
+.cd-input:focus { border-color: var(--blue); background: rgba(0,0,0,.45); }
+.cd-input::-webkit-outer-spin-button, .cd-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.cd-input::placeholder { color: var(--txt-3); font-size: 10.5px; }
+.cd-btn {
+  border: none; border-radius: 7px; cursor: pointer;
+  padding: 6px 9px; font-size: 10.5px; font-weight: 600;
+  font-family: inherit; transition: .2s; white-space: nowrap;
+}
+.cd-btn.set { background: rgba(76,141,255,.15); color: var(--blue); }
+.cd-btn.set:hover { background: rgba(76,141,255,.26); }
+.cd-btn.clr { background: rgba(248,113,113,.14); color: var(--red); }
+.cd-btn.clr:hover { background: rgba(248,113,113,.24); }
+.cd-btn:disabled, .cd-btn.disabled { opacity: .35; cursor: not-allowed; }
+.cd-input:disabled { opacity: .35; cursor: not-allowed; }
+.cd-quick { display: flex; gap: 3px; margin-top: 6px; flex-wrap: wrap; }
+.cd-q {
+  background: rgba(255,255,255,.045); border: none; border-radius: 5px;
+  color: var(--txt-3); font-size: 8.5px; padding: 3px 5px;
+  cursor: pointer; font-family: inherit; transition: .15s;
+  line-height: 1.2;
+}
+.cd-q:hover { background: rgba(255,255,255,.1); color: var(--txt); }
+
+/* ==================================================================
+   设备设置
+   ================================================================== */
+.set-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.set-item {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; background: var(--card-2); border: 1px solid var(--line);
+  border-radius: 10px; padding: 9px 11px;
+}
+.set-name { font-size: 11px; color: var(--txt-2); white-space: nowrap; display: flex; align-items: center; gap: 7px; }
+.set-name i { font-style: normal; font-size: 12px; opacity: .75; }
+select.sel {
+  background: rgba(0,0,0,.32); border: 1px solid var(--line);
+  color: var(--txt); border-radius: 7px; padding: 4px 7px;
+  font-size: 11px; font-family: inherit; outline: none;
+  cursor: pointer; transition: .2s;
+}
+select.sel:focus { border-color: var(--blue); }
+.mini-sw {
+  position: relative; width: 36px; height: 20px; border-radius: 999px;
+  background: rgba(255,255,255,.09); cursor: pointer; flex: none;
+  transition: .25s;
+}
+.mini-sw::after {
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #8b93a0; transition: .25s cubic-bezier(.4,1.4,.6,1);
+}
+.mini-sw.on { background: rgba(52,211,153,.26); }
+.mini-sw.on::after { left: 19px; background: var(--green); }
+.mini-sw.disabled { opacity: .35; cursor: not-allowed; }
+
+/* ==================================================================
+   日志
+   ================================================================== */
+#log {
+  height: 150px; overflow-y: auto;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  font-size: 10.5px; line-height: 1.65;
+  background: rgba(0,0,0,.26); border-radius: 10px;
+  padding: 9px 11px; border: 1px solid var(--line);
+}
+#log::-webkit-scrollbar { width: 5px; }
+#log::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 3px; }
+#log::-webkit-scrollbar-track { background: transparent; }
+.lg { white-space: pre-wrap; word-break: break-all; margin-bottom: 1px; }
+.lg .t { color: var(--txt-3); margin-right: 6px; }
+.lg.i { color: #7d8794; }
+.lg.o { color: var(--green); }
+.lg.w { color: var(--orange); }
+.lg.e { color: var(--red); }
+#logClear { cursor: pointer; transition: .2s; }
+#logClear:hover { color: var(--txt-2); }
+
+/* ==================================================================
+   设置抽屉
+   ================================================================== */
+.mask {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(0,0,0,.55); backdrop-filter: blur(2px);
+  opacity: 0; pointer-events: none; transition: opacity .3s;
+}
+.mask.show { opacity: 1; pointer-events: auto; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 61;
+  width: min(400px, 92vw);
+  background: #0e1116;
+  border-left: 1px solid var(--line);
+  box-shadow: -20px 0 60px -20px rgba(0,0,0,.8);
+  transform: translateX(101%);
+  transition: transform .34s cubic-bezier(.32,.72,.28,1);
+  display: flex; flex-direction: column;
+  overflow-y: auto;
+}
+.drawer.show { transform: translateX(0); }
+.drawer-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 20px 14px; border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; background: #0e1116; z-index: 2;
+}
+.drawer-head h2 { font-size: 13.5px; font-weight: 600; letter-spacing: .3px; }
+.drawer-body { padding: 18px 20px 30px; display: flex; flex-direction: column; gap: 16px; }
+.close-btn {
+  width: 30px; height: 30px; border-radius: 8px;
+  border: 1px solid var(--line); background: transparent;
+  color: var(--txt-2); cursor: pointer; font-size: 14px;
+  display: grid; place-items: center; transition: .2s;
+}
+.close-btn:hover { background: var(--card-hi); color: var(--txt); }
+
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.bridge-note { display: none; }
+body.bridge-mode .bridge-note {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; color: var(--green);
+  background: rgba(52,211,153,.07);
+  border: 1px solid rgba(52,211,153,.18);
+  border-radius: 9px; padding: 9px 12px;
+}
+.bn-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex: none;
+  background: var(--green); box-shadow: 0 0 7px rgba(52,211,153,.8);
+}
+body.bridge-mode #rowConn, body.bridge-mode #rowTools { display: none; }
+.btn {
+  flex: 1; min-width: 0;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--card-2); color: var(--txt-2);
+  padding: 9px 12px; font-size: 12px; font-weight: 500;
+  font-family: inherit; cursor: pointer; transition: .2s;
+  white-space: nowrap;
+}
+.btn:hover:not(:disabled) { background: var(--card-hi); color: var(--txt); border-color: var(--line-2); }
+.btn:active:not(:disabled) { transform: scale(.985); }
+.btn:disabled { opacity: .32; cursor: not-allowed; }
+.btn.primary {
+  background: linear-gradient(145deg, #4c8dff, #3572e0);
+  border-color: transparent; color: #fff;
+  box-shadow: 0 4px 14px -3px rgba(76,141,255,.55);
+}
+.btn.primary:hover:not(:disabled) { box-shadow: 0 6px 18px -3px rgba(76,141,255,.7); color: #fff; }
+.btn.danger { color: var(--red); }
+.btn.danger:hover:not(:disabled) { background: rgba(248,113,113,.12); border-color: rgba(248,113,113,.3); }
+
+.fld label {
+  display: block; font-size: 10px; color: var(--txt-3);
+  margin-bottom: 5px; letter-spacing: .5px; text-transform: uppercase;
+}
+.fld input {
+  width: 100%; background: rgba(0,0,0,.34);
+  border: 1px solid var(--line); border-radius: 9px;
+  color: var(--txt); font-size: 11.5px; padding: 9px 11px;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  outline: none; transition: .2s;
+}
+.fld input:focus { border-color: var(--blue); background: rgba(0,0,0,.5); }
+.fld input::placeholder { color: #3f4650; }
+
+.devinfo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+.devinfo > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.devinfo .k { font-size: 9.5px; color: var(--txt-3); letter-spacing: .4px; text-transform: uppercase; }
+.devinfo .v {
+  font-size: 11.5px; color: var(--txt-2); font-variant-numeric: tabular-nums;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.drawer-note {
+  font-size: 10.5px; color: var(--txt-3); line-height: 1.7;
+  border-top: 1px solid var(--line); padding-top: 13px;
+}
+.drawer-note code {
+  background: rgba(255,255,255,.06); padding: 1px 5px;
+  border-radius: 4px; font-size: 10px; color: var(--txt-2);
+}
+.drawer-note strong { color: var(--txt-2); font-weight: 500; }
+
+/* ==================================================================
+   骨架 / 连接中
+   ================================================================== */
+body.booting .hero-num { opacity: .3; }
+body.booting .port-power { opacity: .3; }
+body.booting #chart { opacity: .3; }
+.skeleton-num {
+  display: inline-block;
+  background: linear-gradient(90deg, rgba(255,255,255,.05) 25%, rgba(255,255,255,.1) 37%, rgba(255,255,255,.05) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  border-radius: 4px;
+}
+@keyframes shimmer { 0% { background-position: 100% 0 } 100% { background-position: 0 0 } }
+
+/* 顶栏连接中的扫描线 */
+.scanline {
+  position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 70;
+  background: linear-gradient(90deg, transparent, var(--blue), transparent);
+  opacity: 0; transition: opacity .4s;
+  pointer-events: none;
+}
+.scanline.on { opacity: 1; animation: scan 1.6s linear infinite; }
+@keyframes scan { 0% { transform: translateX(-100%) } 100% { transform: translateX(100%) } }
+
+/* ==================================================================
+   响应式
+   ================================================================== */
+@media (max-width: 1180px) {
+  .s8, .s6, .s4 { grid-column: span 12; }
+  .ports { grid-template-columns: repeat(2, 1fr); }
+  .scene-row { grid-template-columns: repeat(4, 1fr); }
+  .set-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 760px) {
+  body { padding: 14px 13px 40px; }
+  .hero-num { font-size: 40px; letter-spacing: -1.8px; }
+  .hero-stats { gap: 16px; }
+  .ports, .scene-row, .cd-grid, .proto-groups { grid-template-columns: repeat(2, 1fr); }
+  .set-grid { grid-template-columns: 1fr; }
+  .brand h1 { font-size: 14px; }
+  .fresh { display: none; }
+  .status-sep { display: none; }
+}
+
+/* ==================================================================
+   版式重排 —— 一屏看完
+   ------------------------------------------------------------------
+   原来每个功能占一张大卡（总功率 12 格、端口 12 格、场景 4 格、协议 8 格、
+   倒计时 8 格、设置 4 格），一屏只装得下两张，剩下的要滚。
+   现在按"端口"这条轴重组：
+     ① 总功率 + 曲线（8 格）      ② 端口状态 2×2（4 格）
+     ③ 端口设置：协议 + 倒计时，一行一个口（12 格）
+     ④ 场景与设置（8 格）          ⑤ 日志（4 格）
+   协议和倒计时本来就是"某个口的事"，分开摆只会让人来回找。
+   ================================================================== */
+.hero.s8{grid-column:span 8}
+.layout > .card.s4{grid-column:span 4}
+.layout > .card.s12{grid-column:span 12}
+
+.hero{padding:16px 18px 4px}
+.hero-num{font-size:46px;letter-spacing:-2.2px}
+.hero-stats{gap:22px}
+#chart{height:118px}
+
+/* 端口 2×2 */
+.ports{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.port{padding:10px 11px 9px;border-radius:12px}
+.port-top{margin-bottom:6px;gap:6px}
+.port-power{font-size:22px;letter-spacing:-.9px}
+.port-power .u{font-size:10px}
+.port-vi{margin-top:3px;font-size:10px}
+.bar{margin-top:7px;height:2.5px}
+.port-name{font-size:11px}
+.port-proto{font-size:8.5px;padding:1.5px 5px}
+.sw{padding:2px 7px 2px 5px;font-size:9px}
+.sw .sw-ico{width:10px;height:10px}
+
+/* 端口设置：一行一个口 */
+.port-cfg{display:flex;flex-direction:column;gap:6px}
+.pcf-row{
+  position:relative;display:grid;align-items:center;
+  grid-template-columns:56px minmax(0,1fr) 252px;gap:14px;
+  background:var(--card-2);border:1px solid var(--line);
+  border-radius:10px;padding:8px 12px 8px 14px;
+  transition:border-color .25s,background .25s;
+}
+.pcf-row::before{
+  content:'';position:absolute;left:0;top:8px;bottom:8px;width:2.5px;
+  border-radius:0 3px 3px 0;background:var(--pc);opacity:.6;
+}
+.pcf-row:hover{border-color:var(--line-2);background:var(--card-hi)}
+.pcf-name{
+  font-size:11.5px;font-weight:700;letter-spacing:.5px;color:var(--pc);
+  white-space:nowrap;
+}
+.pcf-protos{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:0}
+.psw{padding:4px 8px 4px 7px;border-radius:7px;gap:5px}
+.psw-name{font-size:10.5px}
+.psw-ind{width:5px;height:5px}
+
+.pcf-cd{display:flex;flex-direction:column;gap:4px;min-width:0}
+.pcf-cd .cd-row{display:flex;align-items:center;gap:5px}
+.pcf-cd .cd-cur{
+  font-size:10px;color:var(--txt-3);min-width:56px;
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+.pcf-cd .cd-input{
+  width:52px;flex:none;text-align:center;padding:4px 5px;font-size:11px;
+  border-radius:6px;
+}
+.pcf-cd .cd-btn{padding:4px 9px;border-radius:6px;font-size:10.5px}
+.cd-quick{margin:0;gap:3px;flex-wrap:nowrap}
+.cd-q{font-size:9px;padding:2.5px 6px;border-radius:5px;background:rgba(255,255,255,.05)}
+
+/* 场景 + 设置 */
+.cfg-block{margin-bottom:11px}
+.cfg-label{
+  font-size:9.5px;letter-spacing:.9px;text-transform:uppercase;
+  color:var(--txt-3);margin-bottom:7px;
+}
+.scene-row{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.scene{padding:7px 8px;border-radius:9px;gap:6px}
+.scene-ico{font-size:13px;display:flex;align-items:center;opacity:.5}
+.scene-lbl{font-size:10.5px;white-space:nowrap}
+.scene.on .scene-ico{opacity:1}
+.scene-desc{
+  margin-top:8px;padding-top:8px;min-height:0;font-size:10.5px;color:var(--txt-3);
+  border-top:1px solid var(--line);
+}
+.set-grid{gap:6px}
+.set-item{padding:7px 10px;border-radius:9px}
+.set-name{font-size:10.5px;gap:6px}
+select.sel{padding:3px 6px;font-size:10.5px}
+.mini-sw{width:32px;height:18px}
+.mini-sw::after{width:12px;height:12px}
+.mini-sw.on::after{left:17px}
+
+/* 日志：占右侧一列，矮一点，别把整页顶长 */
+.layout > .card.s4 #log{height:176px}
+
+@media (max-width:1180px){
+  .hero.s8,.layout > .card.s4{grid-column:span 12}
+  .hero-num{font-size:40px}
+  .ports{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .pcf-row{grid-template-columns:52px minmax(0,1fr);grid-auto-rows:auto;gap:8px 12px}
+  .pcf-cd{grid-column:1 / -1}
+}
+@media (max-width:760px){
+  .ports{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .scene-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pcf-row{grid-template-columns:minmax(0,1fr)}
+  .pcf-name{font-size:10.5px}
+  .pcf-cd,.pcf-protos{grid-column:auto}
+  .cd-quick{flex-wrap:wrap}
+}
+
+</style>
+</head>
+<body class="booting">
+
+<div class="scanline" id="scanline"></div>
+
+<!-- ============================ 顶栏 ============================ -->
+<div class="topbar">
+  <div class="brand">
+    <div class="logo">⚡</div>
+    <div>
+      <h1>酷态科 10 号 Ultra</h1>
+      <p>CUKTECH GaN Ultra · BLE 直连</p>
+    </div>
+  </div>
+  <div class="status" id="statusPill">
+    <span class="dot" id="connDot"></span>
+    <span id="connText">正在连接设备…</span>
+    <span class="status-sep"></span>
+    <span class="fresh" id="freshText">—</span>
+  </div>
+  <button class="icon-btn" id="btnSettings" title="连接与配置">⚙</button>
+</div>
+
+<!-- 连不上时说明「为什么」以及「该做什么」。文案由 /api/state 的
+     reason / hint 驱动 —— 「充电器断开」和「本机没蓝牙」的处理方式完全不同，
+     只写一句"设备断开，30 秒后重连"会让人一直等一个不会成功的重连。 -->
+<div class="hintbar" id="hintBar" hidden>
+  <span class="hb-ico">⚠</span>
+  <div class="hb-body"><b id="hintTitle"></b><span id="hintText"></span></div>
+</div>
+
+<!-- ============================ 主体 ============================ -->
+<div class="layout">
+
+  <!-- 总功率 + 实时曲线 -->
+  <section class="card hero s8">
+    <div class="hero-head">
+      <div>
+        <div class="hero-label">实时总功率</div>
+        <div class="hero-num"><span id="totalPower">--</span><span class="unit">W</span></div>
+      </div>
+      <div class="hero-stats">
+        <div><span>活跃端口</span><b><span id="activeCount">0</span><i> / 4</i></b></div>
+        <div><span>本次峰值</span><b><span id="peakPower">0.0</span><i> W</i></b></div>
+        <div><span>累计电量</span><b><span id="energyWh">0.00</span><i> Wh</i></b></div>
+      </div>
+    </div>
+    <div class="stackbar" id="stackbar">
+      <i data-port="c1" style="--pc:var(--c1)"></i>
+      <i data-port="c2" style="--pc:var(--c2)"></i>
+      <i data-port="c3" style="--pc:var(--c3)"></i>
+      <i data-port="a"  style="--pc:var(--ca)"></i>
+      <em id="stackIdle"></em>
+    </div>
+    <canvas id="chart"></canvas>
+  </section>
+
+  <!-- 端口实时状态（2×2，开关在卡内） -->
+  <section class="card s4">
+    <div class="card-head">
+      <div class="card-title"><i>◎</i>端口状态</div>
+      <div class="card-sub">PIID 1–4 · 每秒刷新</div>
+    </div>
+    <div class="ports">
+      <div class="port" data-port="c1" style="--pc:var(--c1)">
+        <div class="port-top">
+          <span class="port-name">C1</span>
+          <span class="port-proto" id="proto-c1">idle</span>
+          <button class="sw disabled" id="sw-c1" data-port="c1" title="端口输出开关">
+            <i class="sw-ico"></i><span class="sws" id="sws-c1">关</span>
+          </button>
+        </div>
+        <div class="port-power"><span id="p-c1">0.0</span><span class="u">W</span></div>
+        <div class="port-vi"><b id="v-c1">0.0</b> V<em>·</em><b id="i-c1">0.0</b> A</div>
+        <div class="bar"><i id="bar-c1"></i></div>
+      </div>
+
+      <div class="port" data-port="c2" style="--pc:var(--c2)">
+        <div class="port-top">
+          <span class="port-name">C2</span>
+          <span class="port-proto" id="proto-c2">idle</span>
+          <button class="sw disabled" id="sw-c2" data-port="c2" title="端口输出开关">
+            <i class="sw-ico"></i><span class="sws" id="sws-c2">关</span>
+          </button>
+        </div>
+        <div class="port-power"><span id="p-c2">0.0</span><span class="u">W</span></div>
+        <div class="port-vi"><b id="v-c2">0.0</b> V<em>·</em><b id="i-c2">0.0</b> A</div>
+        <div class="bar"><i id="bar-c2"></i></div>
+      </div>
+
+      <div class="port" data-port="c3" style="--pc:var(--c3)">
+        <div class="port-top">
+          <span class="port-name">C3</span>
+          <span class="port-proto" id="proto-c3">idle</span>
+          <button class="sw disabled" id="sw-c3" data-port="c3" title="端口输出开关">
+            <i class="sw-ico"></i><span class="sws" id="sws-c3">关</span>
+          </button>
+        </div>
+        <div class="port-power"><span id="p-c3">0.0</span><span class="u">W</span></div>
+        <div class="port-vi"><b id="v-c3">0.0</b> V<em>·</em><b id="i-c3">0.0</b> A</div>
+        <div class="bar"><i id="bar-c3"></i></div>
+      </div>
+
+      <div class="port" data-port="a" style="--pc:var(--ca)">
+        <div class="port-top">
+          <span class="port-name">USB-A</span>
+          <span class="port-proto" id="proto-a">idle</span>
+          <button class="sw disabled" id="sw-a" data-port="a" title="端口输出开关">
+            <i class="sw-ico"></i><span class="sws" id="sws-a">关</span>
+          </button>
+        </div>
+        <div class="port-power"><span id="p-a">0.0</span><span class="u">W</span></div>
+        <div class="port-vi"><b id="v-a">0.0</b> V<em>·</em><b id="i-a">0.0</b> A</div>
+        <div class="bar"><i id="bar-a"></i></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 端口设置：协议 + 倒计时，按端口排成一行 -->
+  <section class="card s12">
+    <div class="card-head">
+      <div class="card-title"><i>⇄</i>端口设置</div>
+      <div class="card-sub">协议 PIID 21 · 倒计时 PIID 9–12 · 协议改动需重新插拔生效</div>
+    </div>
+    <div class="port-cfg">
+
+      <div class="pcf-row" style="--pc:var(--c1)">
+        <span class="pcf-name">C1</span>
+        <div class="pcf-protos">
+          <div class="psw disabled" id="ps-c1-pd" data-port="c1" data-proto="pd"><span class="psw-ind"></span><span class="psw-name">PD</span></div>
+          <div class="psw disabled" id="ps-c1-pps" data-port="c1" data-proto="pps"><span class="psw-ind"></span><span class="psw-name">PPS</span></div>
+          <div class="psw disabled" id="ps-c1-ufcs" data-port="c1" data-proto="ufcs"><span class="psw-ind"></span><span class="psw-name">UFCS</span></div>
+        </div>
+        <div class="pcf-cd">
+          <div class="cd-row">
+            <span class="cd-cur" id="cds-c1">未设置</span>
+            <input class="cd-input" id="cd-c1" type="number" min="0" max="1440" placeholder="分钟">
+            <button class="cd-btn set" id="cdb-c1">设置</button>
+          </div>
+          <div class="cd-quick" data-port="c1"></div>
+        </div>
+      </div>
+
+      <div class="pcf-row" style="--pc:var(--c2)">
+        <span class="pcf-name">C2</span>
+        <div class="pcf-protos">
+          <div class="psw disabled" id="ps-c2-pd" data-port="c2" data-proto="pd"><span class="psw-ind"></span><span class="psw-name">PD</span></div>
+          <div class="psw disabled" id="ps-c2-pps" data-port="c2" data-proto="pps"><span class="psw-ind"></span><span class="psw-name">PPS</span></div>
+          <div class="psw disabled" id="ps-c2-ufcs" data-port="c2" data-proto="ufcs"><span class="psw-ind"></span><span class="psw-name">UFCS</span></div>
+        </div>
+        <div class="pcf-cd">
+          <div class="cd-row">
+            <span class="cd-cur" id="cds-c2">未设置</span>
+            <input class="cd-input" id="cd-c2" type="number" min="0" max="1440" placeholder="分钟">
+            <button class="cd-btn set" id="cdb-c2">设置</button>
+          </div>
+          <div class="cd-quick" data-port="c2"></div>
+        </div>
+      </div>
+
+      <div class="pcf-row" style="--pc:var(--c3)">
+        <span class="pcf-name">C3</span>
+        <div class="pcf-protos">
+          <div class="psw disabled" id="ps-c3-scp" data-port="c3" data-proto="scp"><span class="psw-ind"></span><span class="psw-name">SCP</span></div>
+          <div class="psw disabled" id="ps-c3-ufcs" data-port="c3" data-proto="ufcs"><span class="psw-ind"></span><span class="psw-name">UFCS</span></div>
+        </div>
+        <div class="pcf-cd">
+          <div class="cd-row">
+            <span class="cd-cur" id="cds-c3">未设置</span>
+            <input class="cd-input" id="cd-c3" type="number" min="0" max="1440" placeholder="分钟">
+            <button class="cd-btn set" id="cdb-c3">设置</button>
+          </div>
+          <div class="cd-quick" data-port="c3"></div>
+        </div>
+      </div>
+
+      <div class="pcf-row" style="--pc:var(--ca)">
+        <span class="pcf-name">USB-A</span>
+        <div class="pcf-protos">
+          <div class="psw disabled" id="ps-a-scp" data-port="a" data-proto="scp"><span class="psw-ind"></span><span class="psw-name">SCP</span></div>
+          <div class="psw disabled" id="ps-a-ufcs" data-port="a" data-proto="ufcs"><span class="psw-ind"></span><span class="psw-name">UFCS</span></div>
+          <div class="psw disabled" id="ps-trickle" data-proto="trickle"><span class="psw-ind"></span><span class="psw-name">小电流</span></div>
+        </div>
+        <div class="pcf-cd">
+          <div class="cd-row">
+            <span class="cd-cur" id="cds-a">未设置</span>
+            <input class="cd-input" id="cd-a" type="number" min="0" max="1440" placeholder="分钟">
+            <button class="cd-btn set" id="cdb-a">设置</button>
+          </div>
+          <div class="cd-quick" data-port="a"></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 场景 + 设备设置 -->
+  <section class="card s8">
+    <div class="card-head">
+      <div class="card-title"><i>🎛</i>场景与设置</div>
+      <div class="card-sub">PIID 5 / 6 / 13 / 19 / 20</div>
+    </div>
+
+    <div class="cfg-block">
+      <div class="cfg-label">场景模式</div>
+      <div class="scene-row">
+        <div class="scene disabled" data-scene="1">
+          <span class="scene-ico"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l1.5 4.2 4.2 1.5-4.2 1.5L12 15l-1.5-4.3L6.3 9.2l4.2-1.5z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg></span>
+          <span class="scene-lbl">AI 自适应</span>
+        </div>
+        <div class="scene disabled" data-scene="2">
+          <span class="scene-ico"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="11" height="12" rx="2"/><path d="M15 10h3a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-3M8 18v2"/></svg></span>
+          <span class="scene-lbl">数码生态</span>
+        </div>
+        <div class="scene disabled" data-scene="3">
+          <span class="scene-ico"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="16" rx="3"/><path d="M11 15h2"/></svg></span>
+          <span class="scene-lbl">单口专供</span>
+        </div>
+        <div class="scene disabled" data-scene="4">
+          <span class="scene-ico"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M6 8h12M4 8l2 5a2.4 2.4 0 0 0 4 0L12 8M14 8l2 5a2.4 2.4 0 0 0 4 0L18 8"/></svg></span>
+          <span class="scene-lbl">均衡分配</span>
+        </div>
+      </div>
+      <div class="scene-desc" id="sceneDesc">连接后显示当前场景说明</div>
+    </div>
+
+    <div class="set-grid">
+      <div class="set-item">
+        <span class="set-name"><i>🌙</i>息屏时间</span>
+        <select class="sel" id="selScreen" disabled>
+          <option value="1">5 分钟</option>
+          <option value="2">10 分钟</option>
+          <option value="3">30 分钟</option>
+          <option value="4">常亮</option>
+          <option value="5">1 分钟</option>
+        </select>
+      </div>
+      <div class="set-item">
+        <span class="set-name"><i>🌐</i>语言</span>
+        <select class="sel" id="selLang" disabled>
+          <option value="0">English</option>
+          <option value="1">中文</option>
+        </select>
+      </div>
+      <div class="set-item">
+        <span class="set-name"><i>💤</i>空闲息屏</span>
+        <div class="mini-sw disabled" id="swIdle"></div>
+      </div>
+      <div class="set-item">
+        <span class="set-name"><i>🔄</i>屏幕方向锁</span>
+        <div class="mini-sw disabled" id="swLock"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 运行日志 -->
+  <section class="card s4">
+    <div class="card-head">
+      <div class="card-title"><i>▤</i>运行日志</div>
+      <div class="card-sub" id="logClear">清空</div>
+    </div>
+    <div id="log"></div>
+  </section>
+
+</div>
+
+<!-- ============================ 设置抽屉 ============================ -->
+<div class="mask" id="drawerMask"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-head">
+    <h2>连接与配置</h2>
+    <button class="close-btn" id="btnDrawerClose" title="关闭">✕</button>
+  </div>
+  <div class="drawer-body">
+    <div class="devinfo">
+      <div><span class="k">设备</span><span class="v" id="devModel">—</span></div>
+      <div><span class="k">固件</span><span class="v" id="devFw">—</span></div>
+      <div><span class="k">协议版本</span><span class="v" id="devProtoVer">—</span></div>
+      <div><span class="k">数据帧</span><span class="v" id="frameCount">0</span></div>
+    </div>
+
+    <div class="bridge-note" id="bridgeNote">
+      <span class="bn-dot"></span>本地服务已托管连接，无需任何手动操作
+    </div>
+    <div class="btn-row" id="rowConn">
+      <button class="btn primary" id="btnConnect">连接并认证</button>
+      <button class="btn danger" id="btnDisconnect" disabled>断开</button>
+    </div>
+    <div class="btn-row" id="rowTools">
+      <button class="btn" id="btnScanAll">扫描全部设备</button>
+      <button class="btn" id="btnRefresh" disabled>刷新</button>
+    </div>
+
+    <div class="fld">
+      <label>MAC 地址</label>
+      <input id="cfgMac" placeholder="AA:BB:CC:DD:EE:FF" spellcheck="false">
+    </div>
+    <div class="fld">
+      <label>Token · 12 字节 hex</label>
+      <input id="cfgToken" placeholder="24 位十六进制（12 字节）" spellcheck="false">
+    </div>
+    <div class="fld">
+      <label>BLE Key · 可选</label>
+      <input id="cfgBleKey" placeholder="32 位十六进制（可选）" spellcheck="false">
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="btnSaveCfg">保存</button>
+      <button class="btn" id="btnClearCfg">清空</button>
+    </div>
+
+    <div class="drawer-note">
+      设备广播名是 <code>njcuk.fitting.ad1204</code>，不是 CUKTECH。<br>
+      扫不到就点「<strong>扫描全部设备</strong>」。需 Chrome / Edge 桌面版。<br><br>
+      本地服务已连接时，网页自动接管，无需在此点任何按钮。
+    </div>
+  </div>
+</aside>
+
+<script src="aes-js.js?v=4"></script>
+<script type="module" src="app.js?v=4"></script>
+</body>
+</html>

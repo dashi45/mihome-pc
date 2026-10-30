@@ -1,0 +1,90 @@
+# ============ Python ============
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+
+# ============ 打包产物 ============
+build/
+dist/
+*.spec
+米家.exe
+
+# ============ 摄像头二进制（71MB，体积过大，不进版本库）============
+# exe 由用户自行放置。go2rtc.yaml 本身是**模板**（只含 ${MI_*} 占位符，
+# 没有任何明文凭据），所以它要进版本库 —— 真实凭据在 cam_secret.json 里。
+go2rtc/*.exe
+go2rtc/*.log
+go2rtc/*.log.bak
+go2rtc/*.bak
+# 本地测试配置（试验用，api 整个关闭；不属于分发的模板）
+go2rtc/go2rtc-test.yaml
+
+# ============ 凭据与密钥（绝不进版本库）============
+.mi.token
+.mi.token.bak
+*.token
+secret.yaml
+cam_secret.json
+*.secret.json
+# 摄像头流配置 / 充电器 BLE 凭据：都是每台机器自己的，只留 .example 模板
+cam.json
+charger/device-config.json
+
+# ============ 摄像头运行缓存 ============
+_camhls/
+_fftest/
+
+# ============ 运行时缓存与数据 ============
+# 两种布局都要盖住：老的在根目录，新的在 runtime/（见 config.py 与
+# tools/migrate_config.py）。搬不搬都能跑，所以忽略规则两处都写。
+devices_cache.json
+spec_cache.json
+.energy_days.json
+evt.db
+evt.db-shm
+evt.db-wal
+ext.json
+ext_hist.json
+notify.json
+weather.json
+runtime/
+
+# ============ 配置目录（迁移后代码/账号/摄像头设置都在这里）============
+# 整个目录忽略，但保留一份说明，免得别人以为漏提交了。
+config/
+!config/README.md
+schedules.json
+# 窗口关闭偏好（托盘/退出），纯本机习惯设置
+ui_close_pref.json
+
+# ============ 日志 ============
+# 统一走 logs/mihome.log（见 logx.py）+ 后端 stdout 的 start.log
+*.log
+start.log
+logs/
+
+# ============ 前端压缩产物（tools/build_frontend.py --apply 生成，可随时重建）============
+static/min/
+
+# ============ pytest ============
+.pytest_cache/
+
+# ============ 截图存档 ============
+_截图/
+
+# ============ 编辑器 / 系统 ============
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+*.swp
+
+# ============ 本地预览/探针杂项（只在本机有用）============
+_icon_preview.png
+_ico_preview.png
+_probe_scene.json
+
+# ============ 测试用临时浏览器配置 ============
+_edgeprofile/

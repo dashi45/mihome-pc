@@ -1,0 +1,15 @@
+{
+  "name": "米家 · 电脑版",
+  "short_name": "米家",
+  "description": "在电脑上控制米家设备",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#EFF2F7",
+  "theme_color": "#FF6A00",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

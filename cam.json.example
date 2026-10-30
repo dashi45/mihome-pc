@@ -1,0 +1,6 @@
+{
+  "_comment": "did -> go2rtc 流名。把 1234567890 换成你摄像头的设备 DID（米家 App 设备信息里，或 logs/mihome.log 里能查到）；流名一般填 camera_h264。复制本文件为 cam.json 后填写；cam.json 已被 .gitignore 排除，不会进版本库。画面朝向（flip）不填则自动读取设备的 image-rollover 属性。",
+  "streams": {
+    "1234567890": "camera_h264"
+  }
+}

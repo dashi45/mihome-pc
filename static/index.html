@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>米家 · 电脑版</title>
+<link rel="icon" href="/static/favicon.png" sizes="64x64">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#FF6A00">
+<script>
+  /* 主题要在首屏渲染前定下来，否则会闪白 */
+  (function () {
+    try {
+      var q = new URLSearchParams(location.search).get("theme");
+      var t = q || localStorage.getItem("mi-theme");
+      if (!t) t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      document.documentElement.dataset.theme = t;
+    } catch (e) {
+      document.documentElement.dataset.theme = "light";
+    }
+  })();
+</script>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="booting">
+
+<!-- ============ 登录页 ============ -->
+<div id="login-view" class="login-wrap">
+  <div class="login-glow a"></div>
+  <div class="login-glow b"></div>
+
+  <div class="login-card">
+    <div class="login-logo">
+      <!-- 品牌图标：米家官方的绿底白 m。用户要的就是这个 —— 方块圆角 22%、
+           白色描边 4.4/48，比例都对着官方图标量的。 -->
+      <svg viewBox="0 0 48 48" width="46" height="46" role="img" aria-label="米家电脑版">
+        <defs>
+          <linearGradient id="mi-tile-lg" x1="8" y1="2" x2="40" y2="46" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#57C093"/><stop offset=".5" stop-color="#47B284"/><stop offset="1" stop-color="#3AA475"/>
+          </linearGradient>
+        </defs>
+        <rect x="0.5" y="0.5" width="47" height="47" rx="10.5" fill="url(#mi-tile-lg)"/>
+        <path transform="translate(-1.8 -2.4)"
+              d="M15.2 33.8V20.4a5.4 5.4 0 0 1 10.8 0v4.4a5.4 5.4 0 0 1 10.8 0v7.4c0 3.4-4.8 5.4-10.8 5.4s-10.8-2-10.8-5.4z"
+              fill="none" stroke="#fff" stroke-width="3.9"
+              stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <h1>米家 · 电脑版</h1>
+    <p class="sub" id="login-sub">扫码登录，安全便捷</p>
+
+    <!-- 默认显示"正在连接"，有凭证时全程不闪登录框；没凭证时 JS 切到扫码面板 -->
+    <div id="restoring" class="restoring">
+      <div class="spin"></div>
+      <p id="restoring-txt">正在连接小米云…</p>
+      <p class="restoring-hint" id="restoring-hint">只需第一次登录，之后会自动保持</p>
+    </div>
+
+    <div id="login-form" class="hidden">
+      <!-- 默认扫码：密码不经过本程序，也不会撞上 device_list 的 -127 风控 -->
+      <div id="qr-panel">
+        <div id="qr-box" class="qr-box loading">
+          <img id="qr-img" alt="小米账号登录二维码" referrerpolicy="no-referrer">
+          <div id="qr-loading" class="qr-loading">
+            <div class="spin"></div>
+            <span>正在获取二维码…</span>
+          </div>
+        </div>
+        <p id="qr-tip" class="qr-tip">打开米家 App，点右上角「扫一扫」<br>扫码后请在手机上确认登录</p>
+        <div id="qr-actions" class="qr-actions hidden">
+          <button id="qr-retry" class="btn-ghost">刷新二维码</button>
+        </div>
+        <button id="qr-switch" class="btn-link">使用账号密码登录</button>
+      </div>
+
+      <div id="pwd-panel" class="hidden">
+        <div class="field">
+          <label>小米账号</label>
+          <input id="in-user" type="text" placeholder="手机号 / 邮箱 / 小米 ID" autocomplete="username">
+        </div>
+        <div class="field">
+          <label>密码</label>
+          <input id="in-pass" type="password" placeholder="账号密码" autocomplete="current-password">
+        </div>
+
+        <button id="btn-login" class="btn-primary">登录</button>
+        <button id="btn-restore" class="btn-ghost hidden">检测到已保存的登录状态，直接进入</button>
+        <button id="pwd-switch" class="btn-link">返回扫码登录</button>
+      </div>
+
+      <div id="login-msg" class="msg"></div>
+    </div>
+
+    <p class="footnote">
+      扫码登录不输入密码；如使用账号密码，仅发送到小米官方服务器，不经过任何第三方。<br>
+      凭证保存在本机 <code>.mi.token</code>，可随时退出清除。
+    </p>
+  </div>
+</div>
+
+<!-- ============ 主界面 ============ -->
+<div id="app-view" class="app hidden">
+  <div id="splash" aria-hidden="true">
+    <div class="sp-logo">米</div>
+    <div class="sp-name">米家 · 电脑版</div>
+    <div class="sp-bar"><i></i></div>
+    <div class="sp-tip" id="sp-tip">正在连接米家云…</div>
+  </div>
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">
+        <!-- 和登录页、桌面图标同一个 m 标，缩到 30px 只是省掉了渐变 -->
+        <svg viewBox="0 0 48 48" width="34" height="34" aria-hidden="true">
+          <path transform="translate(-1.8 -2.4)"
+                d="M15.2 33.8V20.4a5.4 5.4 0 0 1 10.8 0v4.4a5.4 5.4 0 0 1 10.8 0v7.4c0 3.4-4.8 5.4-10.8 5.4s-10.8-2-10.8-5.4z"
+                fill="none" stroke="#fff" stroke-width="3.9"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <span id="home-name">我的家</span>
+        <em>米家电脑版</em>
+      </div>
+    </div>
+
+    <div class="side-label">功能</div>
+    <nav class="room-nav nav-fixed" id="main-nav">
+      <div class="room-item" id="nav-charger" title="CUKTECH 充电器 · 蓝牙直连">
+        <span class="ri">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none"
+               stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/>
+          </svg>
+        </span>
+        <span class="nm">充电器</span>
+        <span class="rt" id="charger-w"></span>
+      </div>
+    </nav>
+
+    <div class="side-label side-label-ext">房间</div>
+    <nav id="room-nav" class="room-nav"></nav>
+
+    <div class="side-bottom">
+      <div class="side-health" id="side-health" data-lvl="idle"
+           title="云端连接状态：绿=正常，黄=网络不稳/数据不是最新，红=连不上">
+        <span class="dot"></span>
+        <span class="hl" id="health-label">未连接</span>
+      </div>
+      <div class="perf-line" id="perf-line" title="首屏 / 出画面耗时">首屏 — · 画面 —</div>
+      <button id="btn-theme" class="btn-side">
+        <span id="theme-ico"></span>
+        <span id="theme-label">深色模式</span>
+      </button>
+      <button id="btn-refresh" class="btn-side">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/>
+        </svg>
+        刷新设备
+      </button>
+      <button id="btn-autostart" class="btn-side">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/><path d="M12 7.5V12l3 1.8"/>
+        </svg>
+        <span id="autostart-label">开机自启</span>
+      </button>
+      <button id="btn-logout" class="btn-side">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M15 17l5-5-5-5M20 12H9M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7"/>
+        </svg>
+        退出登录
+      </button>
+    </div>
+  </aside>
+
+  <main class="main" id="scroller">
+    <header class="topbar" id="topbar">
+      <div class="tb-left">
+        <h2 id="room-title">全部设备</h2>
+        <p id="room-sub" class="muted">—</p>
+
+        <!-- 宽屏顶部：天气缩成一条 + 最新动态一条，把原来空着的左上角填上 -->
+        <button class="wx-mini" id="wx-mini" type="button" aria-label="天气详情" title="天气详情">
+          <span class="wx-mini-glyph" id="wx-mini-glyph"></span>
+          <span class="wx-mini-txt">
+            <b id="wx-mini-t">—</b><em>°</em>
+            <span class="wx-mini-desc" id="wx-mini-desc">天气</span>
+          </span>
+          <span class="wx-mini-meta">
+            <span id="wx-mini-place">定位中</span>
+            <span id="wx-mini-hl">—</span>
+          </span>
+        </button>
+
+        <button class="evt-ticker" id="evt-mini" type="button" title="查看全部动态">
+          <i class="evt-ticker-dot"></i>
+          <span id="evt-mini-text">暂无动态</span>
+          <em id="evt-mini-time"></em>
+          <svg class="evt-ticker-arrow" viewBox="0 0 24 24" width="12" height="12"
+               fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"
+               stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+      <div class="tb-right">
+        <button class="evt-bell" id="evt-bell" type="button" title="推送到手机" aria-label="推送设置">
+          <svg viewBox="0 0 22 22" width="12" height="12" fill="none" stroke="currentColor"
+               stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6.4 9.4a4.6 4.6 0 0 1 9.2 0c0 3.4 1.2 4.6 1.2 4.6H5.2s1.2-1.2 1.2-4.6z"/>
+            <path d="M9.4 16.6a1.8 1.8 0 0 0 3.2 0"/>
+          </svg>
+        </button>
+
+        <button class="tb-ico" id="dash-reset" type="button" title="重置卡片顺序" aria-label="重置卡片顺序">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/>
+            <rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>
+          </svg>
+        </button>
+
+        <label class="search" id="search-box">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
+          </svg>
+          <input id="q" type="text" placeholder="搜索设备" spellcheck="false">
+          <kbd class="search-kbd">/</kbd>
+        </label>
+        <div id="sync-badge" class="pill">
+          <i class="dot live"></i><span id="sync-text">已同步</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ============ 顶部天气信息栏（全宽，独立于下方仪表盘） ============ -->
+    <section class="wx-strip" id="wx-card">
+      <div class="wx-main">
+        <!-- 现在 -->
+        <div class="wx-now">
+          <div class="wx-glyph" id="wx-glyph"></div>
+          <div class="wx-now-txt">
+            <div class="wx-temp"><b id="wx-t">—</b><em>°</em></div>
+            <div class="wx-desc" id="wx-desc">—</div>
+          </div>
+          <div class="wx-place-box">
+            <button class="wx-place" id="wx-place" type="button" title="切换城市">
+              <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z"/>
+                <circle cx="12" cy="10" r="2.4"/>
+              </svg>
+              <span id="wx-place-t">定位中</span>
+            </button>
+            <div class="wx-city-pop hidden" id="wx-city-pop">
+              <input id="wx-city-input" type="text" placeholder="输入城市，如 杭州" maxlength="20">
+              <button id="wx-city-go" type="button">确定</button>
+            </div>
+            <span class="wx-sub" id="wx-sub">正在获取天气…</span>
+          </div>
+        </div>
+
+        <!-- 未来 24 小时曲线 -->
+        <div class="wx-curve-box">
+          <div class="wx-curve-head">
+            <span class="wx-curve-cap">未来 24 小时</span>
+            <span class="wx-hl" id="wx-hl">—</span>
+          </div>
+          <div class="wx-curve-wrap">
+            <svg id="wx-curve" viewBox="0 0 480 52" preserveAspectRatio="none" aria-hidden="true">
+              <defs>
+                <linearGradient id="wx-curve-g" x1="0" y1="0" x2="0" y2="1">
+                  <!-- 面积填充原来 26%：那时整条天气栏本身是蓝底，看不出突兀。
+                       现在栏底色改成中性卡片，这块蓝就跳出来了，压到 17%。-->
+                  <stop offset="0%" stop-color="var(--wx-c)" stop-opacity=".17"/>
+                  <stop offset="100%" stop-color="var(--wx-c)" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <path id="wx-curve-area" fill="url(#wx-curve-g)"/>
+              <path id="wx-curve-line" fill="none" stroke="var(--wx-c)" stroke-width="1.7"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+              <circle id="wx-curve-dot" r="2.6" fill="var(--wx-c)"/>
+            </svg>
+            <div class="wx-ticks" id="wx-ticks"></div>
+          </div>
+        </div>
+
+        <!-- 未来 7 天 -->
+        <div class="wx-days" id="wx-days"></div>
+      </div>
+
+      <div class="wx-foot">
+        <div class="wx-facts" id="wx-facts"></div>
+        <div class="wx-tip" id="wx-tip"></div>
+        <button class="wx-auto" id="wx-auto" type="button"
+                title="日出后自动切浅色、日落后自动切深色">
+          <span class="wx-auto-ic" id="wx-auto-ic"></span>
+          <span id="wx-auto-t">跟随日照</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 宽屏下天气缩进顶栏，这里只是详情弹层；窄屏时仍按原样留在流里 -->
+    <div id="wx-mask" class="wx-mask hidden"></div>
+
+    <!-- ============ 仪表盘：功率 / 环境 / 能源 / 本机 ============ -->
+    <div class="dash" id="dash">
+
+      <!-- ---------- 三格方块：当前功率 / 今日用电 / 本月用电 ----------
+           功率来自 /api/live（充电器功率也在 charger_w 里），
+           今日 / 本月来自已有的 /api/energy 回包，不额外发请求。 -->
+      <section class="dcard pw-tiles" id="power-card">
+        <div class="pw-tile">
+          <span class="pw-cap">当前功率</span>
+          <div class="pw-num"><b id="pw-total">—</b><em id="pw-total-u">W</em></div>
+          <span class="pw-sub" id="pw-sub">—</span>
+        </div>
+        <div class="pw-tile">
+          <span class="pw-cap">今日用电</span>
+          <div class="pw-num"><b id="pw-today">—</b><em>kWh</em></div>
+          <span class="pw-sub" id="pw-today-sub">截至现在</span>
+        </div>
+        <div class="pw-tile">
+          <span class="pw-cap">本月用电</span>
+          <div class="pw-num"><b id="pw-month">—</b><em>kWh</em></div>
+          <div class="pw-month-foot">
+            <span class="pw-sub" id="pw-month-sub">—</span>
+            <button class="pw-cost" id="pw-month-cost-btn" type="button" title="查看电费账单">
+              <i>电费</i><b id="pw-month-cost">—</b><em>元</em><span class="pw-cost-arrow">›</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- 环境：数字 + 一条温度曲线 ---------- -->
+      <section class="dcard" id="env-section">
+        <div class="dc-head">
+          <h3 class="dc-h3"><i class="dc-dot" style="background:#FF6A00"></i>环境</h3>
+          <span class="dc-sub" id="cv-chart-sub">—</span>
+          <div class="dc-ctl">
+            <button class="dc-ico" id="ext-open" type="button"
+                    title="接入米家之外的传感器" aria-label="接入外部传感器">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 3v6M15 3v6M6 9h12v3a6 6 0 0 1-12 0V9zM12 18v3"/>
+              </svg>
+            </button>
+            <div class="cv-range" id="cv-range">
+              <button data-span="3600000">1 小时</button>
+              <button data-span="21600000">6 小时</button>
+              <button data-span="86400000">24 小时</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="cv-rooms" id="cv-rooms"></div>
+
+        <div class="cl-stats">
+          <div class="cl-stat">
+            <span class="cl-cap"><i style="background:#FF6A00"></i>温度</span>
+            <div class="cl-val"><b id="cv-temp">—</b><em>°C</em><u id="cv-temp-d"></u></div>
+          </div>
+          <div class="cl-stat cl-stat-hum">
+            <span class="cl-cap"><i style="background:#3B82F6"></i>湿度</span>
+            <div class="cl-hum-main">
+              <div class="cl-val"><b id="cv-hum-val">—</b><em>%</em><u id="cv-hum-d"></u></div>
+              <div class="cl-hum-track">
+                <div class="cl-hum-bar" id="cv-hum-bar" role="progressbar" aria-label="湿度"
+                     aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                  <i id="cv-hum-fill"></i>
+                </div>
+                <div class="cl-hum-scale"><span>干 40</span><span>舒适 60</span><span>湿 80</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="cl-stat">
+            <span class="cl-cap">体感</span>
+            <div class="cl-val"><b id="cv-comf-rank" class="cl-rank">—</b>
+              <em id="cv-comf-tip" class="cl-tip">—</em></div>
+          </div>
+          <div class="cl-stat cl-stat-range">
+            <span class="cl-cap">本段区间</span>
+            <div class="cl-val">
+              <b id="cv-range-lo">—</b><em>~</em><b id="cv-range-hi">—</b><em>°C</em>
+            </div>
+            <span class="cl-sub" id="cv-range-sub">最低 / 最高</span>
+          </div>
+        </div>
+
+        <div class="cv-chart-wrap" id="cv-chart-wrap">
+          <svg id="cv-chart" viewBox="0 0 760 220">
+            <defs>
+              <linearGradient id="cv-area-g" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="var(--cv-c1)" stop-opacity=".15"/>
+                <stop offset="58%" stop-color="var(--cv-c1)" stop-opacity=".04"/>
+                <stop offset="100%" stop-color="var(--cv-c1)" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <g id="cv-grid"></g>
+            <g id="cv-area"></g>
+            <g id="cv-lines"></g>
+            <g id="cv-axis"></g>
+            <g id="cv-marker"></g>
+          </svg>
+          <div id="cv-empty" class="cv-chart-empty">
+            <p id="cv-empty-t">正在读取米家云端温度记录…</p>
+            <span id="cv-empty-s">米家 App 里能看到的那条曲线，就是这些云端记录</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- 能源 ---------- -->
+      <section class="dcard" id="energy-section">
+        <div class="dc-head">
+          <h3 class="dc-h3"><i class="dc-dot" style="background:#22B573"></i>能源</h3>
+          <div class="dc-ctl">
+            <button class="en-nav" id="en-prev" type="button" aria-label="上一个">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+                   stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 5l-7 7 7 7"/>
+              </svg>
+            </button>
+            <span class="en-label" id="en-label">—</span>
+            <button class="en-nav" id="en-next" type="button" aria-label="下一个">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+                   stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 5l7 7-7 7"/>
+              </svg>
+            </button>
+            <div class="en-seg" id="en-range">
+              <button data-range="week" type="button">周</button>
+              <button data-range="month" type="button">月</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="en-stats">
+          <div class="en-stat">
+            <span class="en-cap">日均</span>
+            <div class="en-val"><b id="en-avg">—</b><em>kWh</em></div>
+          </div>
+          <div class="en-stat">
+            <span class="en-cap">总量</span>
+            <div class="en-val"><b id="en-total">—</b><em>kWh</em></div>
+          </div>
+          <div class="en-delta" id="en-delta"><span id="en-delta-t">—</span></div>
+        </div>
+
+        <div class="en-chart-wrap" id="en-chart-wrap">
+          <svg id="en-chart" viewBox="0 0 760 170">
+            <g id="en-grid"></g>
+            <g id="en-bars"></g>
+            <g id="en-line"></g>
+            <g id="en-axis"></g>
+          </svg>
+          <div id="en-empty" class="cv-chart-empty hidden">
+            <p>还没有用电记录</p>
+            <span>米家只给插座、空调伴侣这类设备统计电量</span>
+          </div>
+        </div>
+
+        <div class="en-note" id="en-sub">—</div>
+
+        <div class="en-rank" id="en-rank">
+          <div id="en-rank-list"></div>
+        </div>
+      </section>
+
+      <!-- ---------- 本机：CPU / 显卡 / 内存 / 磁盘 / 网络 ---------- -->
+      <section class="dcard pc-card" id="pc-card">
+        <div class="dc-head">
+          <h3 class="dc-h3"><i class="dc-dot" style="background:#6366F1"></i>本机</h3>
+          <span class="dc-sub" id="pc-sub">正在读取系统状态…</span>
+          <div class="dc-ctl">
+            <button class="dc-ico" id="pc-explain" type="button" title="这些数字从哪来">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.6v.3"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- CPU 大数字 + 2 分钟曲线 -->
+        <div class="pc-cpu">
+          <div class="pc-cpu-head">
+            <button class="pc-cap" id="pc-cap" type="button" title="点击切换：CPU / 内存 / 显卡">
+              <span>CPU 占用</span>
+              <svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor"
+                   stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 9.5l6 6 6-6"/>
+              </svg>
+            </button>
+            <div class="pc-num"><b id="pc-cpu">—</b><em>%</em></div>
+          </div>
+          <svg class="pc-spark" id="pc-spark" viewBox="0 0 260 44" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="pc-spark-g" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="var(--pc-c)" stop-opacity=".30"/>
+                <stop offset="100%" stop-color="var(--pc-c)" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path id="pc-spark-area" fill="url(#pc-spark-g)"/>
+            <path id="pc-spark-line" fill="none" stroke="var(--pc-c)" stroke-width="1.6"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div class="pc-spark-axis"><span>2 分钟前</span><span id="pc-max">峰值 —</span><span>现在</span></div>
+        </div>
+
+        <!-- 每核占用 -->
+        <div class="pc-cores" id="pc-cores"></div>
+
+        <!-- 温度 / 风扇 / 频率 -->
+        <div class="pc-tiles" id="pc-tiles"></div>
+
+        <!-- 内存 / 磁盘 / 网络 -->
+        <div class="pc-bars" id="pc-bars"></div>
+
+        <!-- 占用最高的进程 -->
+        <div class="pc-procs" id="pc-procs"></div>
+
+        <div class="pc-foot" id="pc-foot">—</div>
+      </section>
+    </div>
+
+    <div id="cache-hint" class="cache-hint hidden">
+      <i class="ch-dot"></i><span id="cache-hint-t">正在显示上次缓存的设备列表，正在连接米家云刷新…</span>
+    </div>
+
+    <div id="device-grid" class="sections"></div>
+
+    <div id="empty-tip" class="empty hidden">
+      <div class="empty-art">
+        <svg viewBox="0 0 64 64" width="52" height="52" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <rect x="14" y="16" width="36" height="32" rx="7"/><path d="M24 30h16M24 37h10"/>
+        </svg>
+      </div>
+      <p>这里还没有设备</p>
+    </div>
+  </main>
+
+  <!-- 充电器（CUKTECH 蓝牙直连）独立视图，用 iframe 装原页面，与主界面同源 -->
+  <div id="charger-view" class="charger-view hidden">
+    <iframe id="charger-frame" title="CUKTECH 充电器" src="about:blank"
+            allow="bluetooth"></iframe>
+  </div>
+</div>
+
+<!-- ============ 设备详情抽屉 ============ -->
+<div id="device-modal" class="drawer-mask hidden">
+  <div class="drawer" role="dialog" aria-modal="true">
+    <div class="drawer-hero">
+      <div class="hero-icon" id="dm-icon"></div>
+      <div class="hero-text">
+        <h3 id="dm-name">设备</h3>
+        <p id="dm-meta">—</p>
+      </div>
+      <button id="dm-close" class="btn-close" aria-label="关闭">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+          <path d="M6 6l12 12M18 6L6 18"/>
+        </svg>
+      </button>
+    </div>
+    <div id="dm-body" class="drawer-body"></div>
+  </div>
+</div>
+
+<!-- ============ 验证码弹窗 ============ -->
+<div id="otp-modal" class="modal-mask hidden">
+  <div class="modal small">
+    <div class="modal-head">
+      <div class="modal-title">
+        <h3>需要验证</h3>
+        <p class="muted">小米账号要求二次验证</p>
+      </div>
+    </div>
+    <div class="modal-body">
+      <p id="otp-tip" class="otp-tip">验证码已发送，请查收</p>
+      <input id="otp-input" class="otp-input" type="text" inputmode="numeric" placeholder="输入验证码" maxlength="8">
+      <button id="otp-submit" class="btn-primary">提交</button>
+      <div id="otp-msg" class="msg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 关闭行为询问（点 ✕ 时由 launcher 的 closing 事件触发） ============ -->
+<div id="close-modal" class="modal-mask hidden">
+  <div class="modal small">
+    <div class="modal-head">
+      <div class="modal-title">
+        <h3>关闭 米家 · 电脑版</h3>
+        <p class="muted">要退出程序，还是最小化到系统托盘继续运行？</p>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="close-acts">
+        <button id="close-to-tray" class="btn-primary" type="button">最小化到托盘</button>
+        <button id="close-exit" class="btn-ghost" type="button">退出程序</button>
+      </div>
+      <label class="close-remember">
+        <input id="close-remember" type="checkbox">
+        <span>记住我的选择，不再询问（可在托盘右键菜单恢复询问）</span>
+      </label>
+      <button id="close-cancel" class="btn-ghost close-cancel" type="button">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 外部传感器接入（米家之外的设备） ============ -->
+<div id="ext-modal" class="modal-mask hidden">
+  <div class="modal ext-modal">
+    <div class="modal-head">
+      <div class="modal-title">
+        <h3>接入外部传感器</h3>
+        <p class="muted">ESP32 / 树莓派 / OpenWrt / iOS 快捷指令，只要能发 HTTP 就能进来</p>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="ext-key">
+        <span class="ext-key-cap">接入密钥</span>
+        <code id="ext-key">—</code>
+        <button class="btn-ghost" id="ext-key-copy" type="button">复制</button>
+        <button class="btn-ghost" id="ext-key-reset" type="button">重置</button>
+      </div>
+      <p class="ext-lead">往下面这个地址推一条 JSON，设备就会出现在环境卡里，和米家传感器混在同一条曲线上。
+        同一个 <code>id</code> 反复推就是更新读数；<code>room</code> 写米家里的房间名就能并进同一组。</p>
+      <pre class="ext-code" id="ext-code">—</pre>
+      <div class="ext-lead2" id="ext-lead2">还没有外部设备接入</div>
+      <div class="ext-list" id="ext-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 电费账单 ============ -->
+<div id="en-bill-modal" class="modal-mask hidden">
+  <div class="modal en-bill" role="dialog" aria-modal="true" aria-label="电费账单">
+    <div class="modal-head bill-head">
+      <div class="modal-title">
+        <h3>电费账单</h3>
+        <p class="muted" id="bill-sub">按当前电价估算</p>
+      </div>
+      <button id="bill-close" class="btn-close" aria-label="关闭">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+             stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="bill-hero">
+        <span class="bill-hero-cap">本期电费</span>
+        <div class="bill-hero-num"><b id="bill-cost">—</b><em>元</em></div>
+        <span class="bill-hero-month" id="bill-month">—</span>
+      </div>
+
+      <div class="bill-kpis">
+        <div><span>预计月底</span><b id="bill-proj">—</b></div>
+        <div><span>日均电费</span><b id="bill-avg">—</b></div>
+        <div><span>上月日均</span><b id="bill-prev">—</b></div>
+      </div>
+
+      <div class="bill-tier" id="bill-tier"></div>
+
+      <div class="bill-actions">
+        <button class="btn-ghost" id="bill-export" type="button">导出 CSV</button>
+        <button class="btn-ghost" id="bill-tariff-toggle" type="button">电价设置</button>
+      </div>
+
+      <div class="bill-tariff hidden" id="bill-tariff">
+        <div class="bill-row">
+          <label for="tariff-mode">计费方式</label>
+          <select id="tariff-mode">
+            <option value="flat">单一电价</option>
+            <option value="tier">阶梯电价</option>
+          </select>
+        </div>
+        <div class="bill-row" id="tariff-flat">
+          <label for="tariff-price">电价（元/kWh）</label>
+          <input id="tariff-price" type="number" min="0" max="20" step="0.01" inputmode="decimal">
+        </div>
+        <div id="tariff-tier" class="hidden">
+          <div class="bill-row">
+            <label>第一档上限</label><input id="tier1-up" type="number" min="0" step="1" inputmode="numeric">
+            <label>单价</label><input id="tier1-price" type="number" min="0" max="20" step="0.01" inputmode="decimal">
+          </div>
+          <div class="bill-row">
+            <label>第二档上限</label><input id="tier2-up" type="number" min="0" step="1" inputmode="numeric">
+            <label>单价</label><input id="tier2-price" type="number" min="0" max="20" step="0.01" inputmode="decimal">
+          </div>
+          <div class="bill-row">
+            <label>第三档（以上）</label><input id="tier3-up" type="text" value="以上" disabled>
+            <label>单价</label><input id="tier3-price" type="number" min="0" max="20" step="0.01" inputmode="decimal">
+          </div>
+        </div>
+        <div class="bill-row">
+          <label for="tariff-fixed">固定月租（元）</label>
+          <input id="tariff-fixed" type="number" min="0" max="1000" step="0.01" inputmode="decimal">
+        </div>
+        <button class="btn-primary" id="tariff-save" type="button">保存电价</button>
+      </div>
+
+      <p class="bill-note">电费按你设置的电价估算，实际以电网账单为准；空调电量由功率点积分估算，月度误差约 ±4%。</p>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<!-- ============ 正在运行（像手机后台那样看程序） ============ -->
+<div class="prx-mask hidden" id="prx-mask">
+  <div class="prx" id="prx" role="dialog" aria-modal="true" aria-label="正在运行的程序">
+    <div class="prx-hd">
+      <div class="prx-hd-txt">
+        <h3>正在运行<em id="prx-count"></em></h3>
+        <p id="prx-sub">正在扫描…</p>
+      </div>
+      <button class="prx-close" id="prx-close" type="button" title="关闭（Esc）">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+             stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="prx-bar">
+      <label class="prx-search">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"
+             stroke-width="2.2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>
+        </svg>
+        <input id="prx-q" type="text" placeholder="搜索程序或窗口标题" maxlength="30" autocomplete="off">
+      </label>
+      <div class="prx-seg" id="prx-sort">
+        <button data-sort="cpu" class="on" type="button">CPU</button>
+        <button data-sort="mem" type="button">内存</button>
+        <button data-sort="name" type="button">名称</button>
+      </div>
+    </div>
+
+    <div class="prx-tabs" id="prx-tabs">
+      <button data-g="all" class="on" type="button">全部 <i></i></button>
+      <button data-g="app" type="button">前台 <i></i></button>
+      <button data-g="bg" type="button">后台 <i></i></button>
+      <button data-g="sys" type="button">系统 <i></i></button>
+    </div>
+
+    <div class="prx-list" id="prx-list"></div>
+    <div class="prx-ft" id="prx-ft"></div>
+  </div>
+</div>
+
+<!-- 加载策略
+     · hls.js（414KB）**不在这里**：只有真的打开摄像头画面时才由 app.js 的
+       ensureHls() 动态拉取，用不到就一个字节都不下载。
+     · 下面这批是看板本身要用的，全部 defer：不阻塞 HTML 解析，且严格按书写
+       顺序执行（app.js 里的工具函数被后面几个模块依赖，顺序不能乱）。
+     · 功能已按领域分文件（climate/energy/weather/pcstat/evt/notify/procs/
+       sched），app.js 只剩看板骨架。 -->
+<script defer src="/static/suspend.js"></script>
+<script defer src="/static/app.js"></script>
+<script defer src="/static/cardsort.js"></script>
+<script defer src="/static/dashdrag.js"></script>
+<script defer src="/static/climate.js"></script>
+<script defer src="/static/weather.js"></script>
+<script defer src="/static/energy.js"></script>
+<script defer src="/static/pcstat.js"></script>
+<script defer src="/static/evt.js"></script>
+<script defer src="/static/notify.js"></script>
+<script defer src="/static/procs.js"></script>
+<script defer src="/static/sched.js"></script>
+</body>
+</html>

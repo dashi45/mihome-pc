@@ -1,0 +1,69 @@
+log:
+  level: info
+  format: text
+
+# HTTP API 整个关掉（listen 为空 = 不监听）。
+# 这是唯一能把 token 吐出去的接口：/api/config 会原样打印下面 xiaomi 段的
+# 账号 token，而它既没有鉴权、也不校验 Host —— 只要浏览器被诱导访问一个
+# "解析到 127.0.0.1 的域名"（DNS rebinding），页面就跟它同源，直接读走。
+# 改 origin 白名单只能挡住"跨站读"，挡不住 rebinding，所以干脆不监听。
+# 本程序取流走 RTSP 8554（camhls 服务的），完全不依赖这个 API。
+api:
+  listen: ""
+
+# RTSP 只绑回环：默认是 :8554（0.0.0.0），等于同网段任何设备都能无鉴权
+# 把摄像头画面拉走，路由器做了端口映射的话外网也能。camhls 走 127.0.0.1。
+rtsp:
+  listen: "127.0.0.1:8554"
+
+# 不用 WebRTC（浏览器画面由 Flask 的 /camhls 提供），别占 8555 暴露 UDP/TCP。
+webrtc:
+  listen: ""
+
+ffmpeg:
+  bin: ffmpeg.exe
+  # 摄像头原生 2304x1296，缩到 720p 再编码：省资源、画面也够看。
+  #
+  # 【2026-10-26 改】这条不再是"备用流"：camhls 现在只做 -c copy 封装，
+  # 本程序自己的画面也走 camera_h264。所以这里的参数就是最终画质，
+  # 编码器换成 nvenc（这台机器是 RTX 4070 Ti SUPER）：
+  #   · 720p20 对 NVENC 是零头，CPU 占用从"约 1 核（libx264）"降到接近 0
+  #   · 代价：换到没有 N 卡的机器会起不来。真要移植，把整行换成下面这行注释里的
+  #     libx264 版本即可（改完重启程序，不用改 Python）：
+  #     h264: "-c:v libx264 -preset veryfast -b:v 2000k -maxrate 2500k -bufsize 4000k -vf scale=1280:720,format=yuv420p -g 20 -bf 0"
+  #   · 自带的是 ffmpeg 6.1.1（gyan essentials），p1~p7 这套新 preset 可用，
+  #     实测 h264_nvenc 出流正常（4070 Ti SUPER）
+  #
+  # GOP 必须是 1 秒一个（-g 20 @20fps）：
+  #   HLS 只在关键帧处切片。关键帧间隔 2.5 秒而分片 1 秒时，ffmpeg 会拖长分片
+  #   或切出没有关键帧的片，hls.js 拿到就报 "Found no media in msn" 无限重连。
+  #   现在 camhls 是 -c copy，切点完全依赖上游的 GOP，这一行比原来更关键。
+  # 2026-10-26：720p/2Mbps → 540p/15fps/1.2Mbps。播放器里那张卡只有 ~300px 宽，
+  # 540p 看不出差别，但转码进程的内存和 CPU 大约减半（这是这几轮里唯一
+  # "能看见"的内存收益，配合 camhls 的 IDLE_STOP=15 才真正生效）。
+  # 注意 -g 要跟着帧率走：15fps × -g 15 = 1 秒一个关键帧。
+  h264: "-c:v h264_nvenc -preset p2 -tune ll -rc vbr -b:v 1200k -maxrate 1500k -bufsize 3000k -vf scale=960:540,format=yuv420p -r 15 -g 15 -bf 0"
+  # RTSP 输入参数。读超时在 camhls 那侧给（RTSP 的 -timeout，不是 -rw_timeout）。
+  rtsp: "-fflags nobuffer -flags low_delay -user_agent go2rtc/ffmpeg -rtsp_flags prefer_tcp -i {input}"
+
+# 账号凭据**不写在配置文件里**，从 cam_secret.json 读取：
+# launcher.start_cam() 启动 go2rtc 前会把它们注入环境变量，go2rtc 自己做 ${VAR} 替换。
+#
+# 为什么这么绕：这个文件以前明文写着米家账号 token 和内网 IP。它一旦被
+# 分享、上传、网盘备份，等于把摄像头和账号一起交出去。现在配置文件本身
+# 不含任何秘密，可以安全地进版本库。
+#
+# 注意：go2rtc 在环境变量缺失时会**保留字面量**（不会报错），
+# 所以 cam_secret.json 缺失时表现是"认证失败"而不是"配置错误" ——
+# launcher.log 里会先写一条明确的提示，别被 go2rtc 的报错带偏。
+xiaomi:
+  "${MI_XIAOMI_USER}": "${MI_XIAOMI_TOKEN}"
+streams:
+  # 原始流：小米 P2P 取下来的 HEVC，只负责"把画面取下来"，不再直接给播放器用
+  # （WebView2 解不了 HEVC，见 README 的摄像头一节）。
+  camera: xiaomi://${MI_XIAOMI_USER}:${MI_XIAOMI_REGION}@${MI_CAMERA_IP}?did=${MI_CAMERA_DID}&model=${MI_CAMERA_MODEL}&subtype=${MI_CAMERA_SUBTYPE}
+
+  # 转码流：H264 720p，参数见上面 ffmpeg.h264。
+  # 本程序的画面走这条 —— camhls 拉它、-c copy 切成 HLS。
+  # 外部客户端（Home Assistant / VLC）也可以直接用，等于同一条流两个用途。
+  camera_h264: ffmpeg:camera#video=h264

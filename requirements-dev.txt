@@ -1,0 +1,9 @@
+# 开发期依赖（不打包、不随发布分发）
+#
+#   .venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+#
+# 说明：pytest 只用来跑 tests/。tests/ 下的用例是脚本式的，由
+# tests/conftest.py 包装成"一个脚本 = 一个用例、子进程执行"，所以不需要
+# pytest-asyncio / pytest-mock 之类的插件。
+pytest>=8.0
+pyflakes>=3.0

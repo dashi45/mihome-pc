@@ -1,0 +1,8 @@
+miservice>=3.0.1
+flask>=3.0.0
+bleak
+cryptography
+pywebview>=6.0
+waitress>=3.0.0
+psutil>=5.9
+pywin32>=306

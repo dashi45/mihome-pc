@@ -1,0 +1,14 @@
+{
+  "_comment": [
+    "CUKTEC 充电器 BLE 凭据模板。复制本文件为 device-config.json 并填入真实值；",
+    "device-config.json 已被 .gitignore 排除，不会进版本库、不会被分享出去。",
+    "也可以用环境变量 CUKTECH_DEVICE_MAC / CUKTECH_DEVICE_TOKEN 覆盖文件值（见 charger/bridge.py）。",
+    "mac/token 必填（token 为 12 字节 = 24 位 hex）；deviceId/bleKey 当前代码未读取，保留键位便于扩展。"
+  ],
+  "name": "CUKTEC 10 GaN Charger Ultra",
+  "model": "njcuk.fitting.ad1204",
+  "deviceId": "blt.3.xxxxxxxxxxxx",
+  "mac": "AA:BB:CC:DD:EE:FF",
+  "token": "000000000000000000000000",
+  "bleKey": ""
+}
